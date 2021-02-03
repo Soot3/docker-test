@@ -1,0 +1,66 @@
+name: Train model
+inputs:
+- {name: data, type: String}
+outputs:
+- {name: model, type: String}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==0.23.4' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def _make_parent_dirs_and_return_path(file_path: str):
+          import os
+          os.makedirs(os.path.dirname(file_path), exist_ok=True)
+          return file_path
+
+      def train_model(data_path, model_file):
+          import sys, subprocess
+          subprocess.run([sys.executable, "-m", "pip", "install", "scikit-learn==0.22"])
+          subprocess.run([sys.executable, "-m", "pip", "install", "numpy"])
+          subprocess.run([sys.executable, "-m", "pip", "install", "pandas"])
+          import numpy as np
+          import pandas as pd
+          import pickle
+          import tensorflow as tf
+          from tensorflow import feature_column
+          from tensorflow.keras import layers
+          from tensorflow.keras.layers import Input, Dense, Activation,Dropout
+          from tensorflow.keras.models import Model
+          with open(data_path,'rb') as f:
+              data = pickle.load(f)
+          X = data['features']
+          input_layer = Input(shape=(X.shape[1]))
+          dense_layer_1 = Dense(6, activation='relu')(input_layer)
+          dense_layer_2 = Dense(6, activation='relu')(dense_layer_1)
+          output = Dense(1, activation='sigmoid')(dense_layer_2)
+
+          model = Model(inputs=input_layer, outputs=output)
+          model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
+          history = model.fit(data['train']['X'], data['train']['y'], batch_size=10, epochs=44, verbose=1, validation_split=0.2)
+          model.save(model_file)
+
+          return (print('Done!'))
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Train model', description='')
+      _parser.add_argument("--data", dest="data_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model", dest="model_file", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = train_model(**_parsed_args)
+    args:
+    - --data
+    - {inputPath: data}
+    - --model
+    - {outputPath: model}
