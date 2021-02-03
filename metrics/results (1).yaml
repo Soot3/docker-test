@@ -1,0 +1,35 @@
+name: Results
+inputs:
+- {name: data_path}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def results(data_path):
+        import sys, subprocess
+        subprocess.run([sys.executable, "-m", "pip", "install", "pickle"])
+        import pickle
+        with open(f'{data_path}/metrics','rb') as f:
+            data = pickle.load(f)
+        print(f" Accuracy: {data['score']} \n ")
+        print(f"Confusion: {data['cm']} \n")
+        print(f"Classification report: {data['cr']} \n")
+        with open('results.txt','w') as result:
+          result.write(f"Accuracy: {data['score']}, \n\n Confusion matrix {data['cm']} \n\n Classification report {data['cr']}")
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Results', description='')
+      _parser.add_argument("--data-path", dest="data_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = results(**_parsed_args)
+    args:
+    - --data-path
+    - {inputValue: data_path}

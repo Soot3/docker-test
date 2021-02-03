@@ -1,0 +1,52 @@
+name: Test model
+inputs:
+- {name: data_path}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' 'scikit-learn==0.22' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+      -m pip install --quiet --no-warn-script-location 'pandas==0.23.4' 'scikit-learn==0.22'
+      --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def test_model(data_path):
+        import sys, subprocess
+        subprocess.run([sys.executable, "-m", "pip", "install", "scikit-learn==0.22"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "numpy"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "pandas"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "pickle"])
+        import numpy as np
+        import pandas as pd
+        import pickle
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.metrics import confusion_matrix,classification_report
+        with open(f'{data_path}/split_data','rb') as f:
+            data = pickle.load(f)
+        with open(f'{data_path}/fit_model','rb') as f:
+            rfcla = pickle.load(f)
+        Y_pred = rfcla.predict(data["test"]["X"])
+        score = rfcla.score(data["test"]["X"], data["test"]["y"])
+        rfcla_cm = confusion_matrix(data["test"]["y"], Y_pred)
+        cr = classification_report(data["test"]["y"], Y_pred, target_names=['No', 'Yes'])
+        data = {"score":score, "cm":rfcla_cm,"cr":cr}
+        with open(f'{data_path}/metrics','wb') as f:
+          pickle.dump((data),f)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Test model', description='')
+      _parser.add_argument("--data-path", dest="data_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = test_model(**_parsed_args)
+    args:
+    - --data-path
+    - {inputValue: data_path}
