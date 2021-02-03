@@ -1,0 +1,31 @@
+name: Load data
+outputs:
+- {name: data_path, type: String}
+implementation:
+  container:
+    image: python:3.1.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def _parent_dirs_maker_that_returns_open_file(mode: str, encoding: str = None):\n\
+      \    def make_parent_dirs_and_return_path(file_path: str):\n        import os\n\
+      \        os.makedirs(os.path.dirname(file_path), exist_ok=True)\n        return\
+      \ open(file_path, mode=mode, encoding=encoding)\n    return make_parent_dirs_and_return_path\n\
+      \ndef load_data(data_path):\n  #importing libraries\n  import sys, subprocess;\n\
+      \  subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas==0.23.4'])\
+      \  \n  subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"dill\"\
+      ])\n  import dill\n  import pandas as pd\n  #importing the data\n  data = pd.read_csv(\"\
+      https://raw.githubusercontent.com/Soot3/testing/master/cell2celltrain.csv\"\
+      ,engine='python', encoding='utf-8', error_bad_lines=False)\n  #serialize data\
+      \ to be used\n  with open(data_path,'wb') as f:\n    dill.dump(data,f)\n  return\
+      \ print('Done!')\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Load\
+      \ data', description='')\n_parser.add_argument(\"--data-path\", dest=\"data_path\"\
+      , type=_parent_dirs_maker_that_returns_open_file('wt'), required=True, default=argparse.SUPPRESS)\n\
+      _parsed_args = vars(_parser.parse_args())\n\n_outputs = load_data(**_parsed_args)\n"
+    args:
+    - --data-path
+    - {outputPath: data_path}
