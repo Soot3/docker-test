@@ -1,0 +1,34 @@
+name: Load data
+outputs:
+- {name: data, type: String}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==0.23.4' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n   \
+      \ os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
+      \ndef load_data(data_path):\n  #importing libraries\n  import sys, subprocess;\n\
+      \  subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas==0.23.4'])\n\
+      \  subprocess.run([sys.executable, '-m', 'pip', 'install', 'joblib'])  \n  import\
+      \ joblib\n  import pandas as pd\n  #importing the data\n  data = pd.read_csv(\"\
+      https://raw.githubusercontent.com/Soot3/testing/master/cell2celltrain.csv\"\
+      ,engine='python', encoding='utf-8', error_bad_lines=False)\n\n  #serialize data\
+      \ to be used\n  with open(data_path,'wb') as f:\n    joblib.dump((data),f)\n\
+      \  return print('Done!')\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Load\
+      \ data', description='')\n_parser.add_argument(\"--data\", dest=\"data_path\"\
+      , type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n\
+      _parsed_args = vars(_parser.parse_args())\n\n_outputs = load_data(**_parsed_args)\n"
+    args:
+    - --data
+    - {outputPath: data}
