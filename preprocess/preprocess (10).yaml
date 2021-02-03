@@ -1,0 +1,55 @@
+name: Preprocessing
+inputs:
+- {name: data, type: String}
+outputs:
+- {name: out, type: String}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' 'scikit-learn==0.22' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+      -m pip install --quiet --no-warn-script-location 'pandas==0.23.4' 'scikit-learn==0.22'
+      --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n   \
+      \ os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
+      \ndef preprocessing(data_path, out_path):\n  import sys, subprocess\n  subprocess.run([sys.executable,\
+      \ \"-m\", \"pip\", \"install\", \"scikit-learn==0.22\"])\n  subprocess.run([sys.executable,\
+      \ \"-m\", \"pip\", \"install\", \"numpy\"])\n  subprocess.run([sys.executable,\
+      \ \"-m\", \"pip\", \"install\", \"pandas\"])\n  subprocess.run([sys.executable,\
+      \ \"-m\", \"pip\", \"install\", \"dill\"])\n  import dill\n  import numpy as\
+      \ np\n  import pandas as pd\n  from sklearn.preprocessing import LabelEncoder,\
+      \ RobustScaler\n  from sklearn.model_selection import train_test_split\n  with\
+      \ open(f\"{data_path}/data\",'rb') as f:\n    df = dill.load(f)\n  df.dropna(inplace=True)\n\
+      \  features1= ['ActiveSubs','DroppedBlockedCalls','HandsetModels','OutboundCalls','OffPeakCallsInOut','OverageMinutes','PeakCallsInOut','ReceivedCalls','RetentionOffersAccepted','CustomerID']\n\
+      \  df.drop(columns=features1, inplace=True)\n  # Imputting the mean price instead\
+      \ of Unknown\n  df['HandsetPrice'] = df['HandsetPrice'].replace('Unknown',82.24)\n\
+      \  df['HandsetPrice']=df['HandsetPrice'].astype(float)\n  dum = pd.get_dummies(df[['CreditRating',\
+      \ 'Occupation', 'MaritalStatus']], drop_first=True)\n  objects = df.select_dtypes('object').columns.tolist()\n\
+      \  le = LabelEncoder()\n  df[objects] = df[objects].apply(le.fit_transform)\
+      \ \n  df = pd.concat([df,dum], axis = 1)\n    # selecting features, X\n  x =\
+      \ df.drop(columns=['Churn','NewCellphoneUser','HandsetRefurbished','ChildrenInHH','NotNewCellphoneUser','TruckOwner','OwnsComputer','HandsetWebCapable','RespondsToMailOffers','Homeownership','BuysViaMailOrder',\n\
+      \  'HasCreditCard','RVOwner','ReferralsMadeBySubscriber','NonUSTravel','RetentionCalls','AdjustmentsToCreditRating','MadeCallToRetentionTeam','OwnsMotorcycle','OptOutMailings','CallForwardingCalls',\
+      \ 'CreditRating', 'Occupation', 'MaritalStatus'])\n    # selecting labels, y\n\
+      \  y = df['Churn']\n  scaler = RobustScaler()\n  X = scaler.fit_transform(x.astype(float))\n\
+      \  X_train, X_test, Y_train, Y_test = train_test_split(X,y, test_size=0.3, random_state=9)\n\
+      \  data = {\"train\": {\"X\": X_train, \"y\": Y_train},\"test\": {\"X\": X_test,\
+      \ \"y\": Y_test}}\n  with open(out_path,'wb') as f:\n    dill.dump(data,f)\n\
+      \nimport argparse\n_parser = argparse.ArgumentParser(prog='Preprocessing', description='')\n\
+      _parser.add_argument(\"--data\", dest=\"data_path\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--out\", dest=\"out_path\"\
+      , type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n\
+      _parsed_args = vars(_parser.parse_args())\n\n_outputs = preprocessing(**_parsed_args)\n"
+    args:
+    - --data
+    - {inputPath: data}
+    - --out
+    - {outputPath: out}
