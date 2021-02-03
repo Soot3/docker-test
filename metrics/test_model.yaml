@@ -1,0 +1,51 @@
+name: Test model
+inputs:
+- {name: data, type: Dictionary}
+- {name: dat, type: SkModel}
+outputs:
+- {name: out, type: Dictionary}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' 'scikit-learn==0.22' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+      -m pip install --quiet --no-warn-script-location 'pandas==0.23.4' 'scikit-learn==0.22'
+      --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      echo -n "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n   \
+      \ os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
+      \ndef test_model(data_path, dat_path, out_path):\n  import sys, subprocess\n\
+      \  subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"scikit-learn==0.22\"\
+      ])\n  subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"numpy\"\
+      ])\n  subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"pandas\"\
+      ])\n  subprocess.run([sys.executable, '-m', 'pip', 'install', 'joblib'])  \n\
+      \  import joblib\n  import numpy as np\n  import pandas as pd\n  from sklearn.ensemble\
+      \ import RandomForestClassifier\n  from sklearn.metrics import confusion_matrix,classification_report\n\
+      \  with open(data_path,'rb') as f:\n      data = joblib.load(f)\n  with open(dat_path,'rb')\
+      \ as f:\n      rfcla = joblib.load(f)\n  Y_pred = rfcla.predict(data[\"test\"\
+      ][\"X\"])\n  score = rfcla.score(data[\"test\"][\"X\"], data[\"test\"][\"y\"\
+      ])\n  rfcla_cm = confusion_matrix(data[\"test\"][\"y\"], Y_pred)\n  cr = classification_report(data[\"\
+      test\"][\"y\"], Y_pred, target_names=['No', 'Yes'])\n  data = {\"score\":score,\
+      \ \"cm\":rfcla_cm,\"cr\":cr}\n  with open(out_path,'wb') as f:\n    joblib.dump((data),f)\n\
+      \nimport argparse\n_parser = argparse.ArgumentParser(prog='Test model', description='')\n\
+      _parser.add_argument(\"--data\", dest=\"data_path\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--dat\", dest=\"dat_path\"\
+      , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --out\", dest=\"out_path\", type=_make_parent_dirs_and_return_path, required=True,\
+      \ default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n\
+      _outputs = test_model(**_parsed_args)\n"
+    args:
+    - --data
+    - {inputPath: data}
+    - --dat
+    - {inputPath: dat}
+    - --out
+    - {outputPath: out}
