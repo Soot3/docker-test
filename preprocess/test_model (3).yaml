@@ -1,0 +1,68 @@
+name: Test model
+inputs:
+- {name: data_path, default: ./split_data, optional: true}
+- {name: dat_path, default: ./fit_model, optional: true}
+- {name: out_path, default: ./metrics, optional: true}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' 'scikit-learn==0.22' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+      -m pip install --quiet --no-warn-script-location 'pandas==0.23.4' 'scikit-learn==0.22'
+      --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def test_model(data_path='./split_data', dat_path='./fit_model', out_path='./metrics'):
+        import sys, subprocess
+        subprocess.run([sys.executable, "-m", "pip", "install", "scikit-learn==0.22"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "numpy"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "pandas"])
+        import numpy as np
+        import pandas as pd
+        import pickle
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.metrics import confusion_matrix,classification_report
+        with open(data_path,'rb') as f:
+            data = pickle.load(f)
+        with open(dat_path,'rb') as f:
+            rfcla = pickle.load(f)
+        Y_pred = rfcla.predict(data["test"]["X"])
+        score = rfcla.score(data["test"]["X"], data["test"]["y"])
+        rfcla_cm = confusion_matrix(data["test"]["y"], Y_pred)
+        cr = classification_report(data["test"]["y"], Y_pred, target_names=['No', 'Yes'])
+        data = {"score":score, "cm":rfcla_cm,"cr":cr}
+        with open(out_path,'wb') as f:
+          pickle.dump((data),f)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Test model', description='')
+      _parser.add_argument("--data-path", dest="data_path", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--dat-path", dest="dat_path", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--out-path", dest="out_path", type=str, required=False, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = test_model(**_parsed_args)
+    args:
+    - if:
+        cond: {isPresent: data_path}
+        then:
+        - --data-path
+        - {inputValue: data_path}
+    - if:
+        cond: {isPresent: dat_path}
+        then:
+        - --dat-path
+        - {inputValue: dat_path}
+    - if:
+        cond: {isPresent: out_path}
+        then:
+        - --out-path
+        - {inputValue: out_path}

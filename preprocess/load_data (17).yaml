@@ -1,0 +1,35 @@
+name: Load data
+inputs:
+- {name: data_path, default: ./data, optional: true}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+      --no-warn-script-location 'pandas==0.23.4' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def load_data(data_path='./data'):\n  #importing libraries\n  import sys, subprocess;\n\
+      \  subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas==0.23.4'])\
+      \  \n  subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"dill\"\
+      ])\n  import dill\n  import pandas as pd\n  #importing the data\n  data = pd.read_csv(\"\
+      https://raw.githubusercontent.com/Soot3/testing/master/cell2celltrain.csv\"\
+      ,engine='python', encoding='utf-8', error_bad_lines=False)\n  #serialize data\
+      \ to be used\n  with open(data_path,'wb') as f:\n    dill.dump(data,f)\n  return\
+      \ print('Done!')\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Load\
+      \ data', description='')\n_parser.add_argument(\"--data-path\", dest=\"data_path\"\
+      , type=str, required=False, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
+      \n_outputs = load_data(**_parsed_args)\n"
+    args:
+    - if:
+        cond: {isPresent: data_path}
+        then:
+        - --data-path
+        - {inputValue: data_path}
