@@ -1,0 +1,48 @@
+name: Load data
+outputs:
+- {name: data, type: String}
+implementation:
+  container:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+      'pandas==0.23.4' 'numpy' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+      --quiet --no-warn-script-location 'pandas==0.23.4' 'numpy' --user) && "$0" "$@"
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def _make_parent_dirs_and_return_path(file_path: str):
+          import os
+          os.makedirs(os.path.dirname(file_path), exist_ok=True)
+          return file_path
+
+      def load_data(data_path):
+        #importing libraries
+        import sys, subprocess;
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas==0.23.4'])
+        import pickle
+        import pandas as pd
+        import numpy as np
+        #importing the data
+        data = pd.read_csv("https://raw.githubusercontent.com/Soot3/testing/master/cell2celltrain.csv",engine='python', encoding='utf-8', error_bad_lines=False)
+
+        #serialize data to be used
+        with open(data_path,'wb') as f:
+          pickle.dump(data,f)
+        return print('Done!')
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Load data', description='')
+      _parser.add_argument("--data", dest="data_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = load_data(**_parsed_args)
+    args:
+    - --data
+    - {outputPath: data}
